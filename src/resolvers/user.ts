@@ -95,6 +95,10 @@ export class UserResolver {
     });
     await ctx.em.persistAndFlush(user);
 
+    // add session
+    // to keep people logged in
+    ctx.req.session!.userId = user.id;
+
     return { user };
   }
 
