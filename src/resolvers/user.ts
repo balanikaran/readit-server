@@ -52,7 +52,7 @@ export class UserResolver {
       return null;
     }
 
-    const user = await ctx.em.findOne(User, { id: ctx.req.session.userId });
+    const user = await User.findOne(ctx.req.session.userId);
     if (!user) {
       return null;
     }
@@ -74,7 +74,7 @@ export class UserResolver {
     }
 
     // checking email already in use for some account/username
-    let tempUser = await ctx.em.findOne(User, { email: options.email });
+    let tempUser = await User.findOne({ where: { email: options.email } });
     if (tempUser) {
       return {
         errors: [{ field: "email", message: "email already in use" }],
@@ -91,7 +91,7 @@ export class UserResolver {
     }
 
     // checking username availability
-    tempUser = await ctx.em.findOne(User, { username: options.username });
+    tempUser = await User.findOne({ where: { username: options.username } });
     if (tempUser) {
       return {
         errors: [{ field: "username", message: "username not available" }],
@@ -123,12 +123,11 @@ export class UserResolver {
     }
 
     const hashedPassword = await argon2.hash(options.password);
-    const user = ctx.em.create(User, {
+    const user = await User.create({
       email: options.email,
       username: options.username,
       password: hashedPassword,
-    });
-    await ctx.em.persistAndFlush(user);
+    }).save();
 
     // add session
     // to keep people logged in
@@ -146,9 +145,9 @@ export class UserResolver {
     let user = null;
     // checking if email entered
     if (validateEmail(usernameOrEmail)) {
-      user = await ctx.em.findOne(User, { email: usernameOrEmail });
+      user = await User.findOne({ where: { email: usernameOrEmail } });
     } else {
-      user = await ctx.em.findOne(User, { username: usernameOrEmail });
+      user = await User.findOne({ where: { username: usernameOrEmail } });
     }
 
     if (!user) {
@@ -189,7 +188,7 @@ export class UserResolver {
 
   @Mutation(() => Boolean)
   async forgotPassword(@Ctx() ctx: MyContext, @Arg("email") email: string) {
-    const user = await ctx.em.findOne(User, { email });
+    const user = await User.findOne({ where: { email } });
 
     if (!user) {
       // the email is not in db
@@ -237,7 +236,8 @@ export class UserResolver {
       };
     }
 
-    const user = await ctx.em.findOne(User, { id: parseInt(userId) });
+    const userIdNum = parseInt(userId);
+    const user = await User.findOne(userIdNum);
 
     if (!user) {
       return {
@@ -248,7 +248,7 @@ export class UserResolver {
     const hashedNewPassword = await argon2.hash(newPassword);
     user.password = hashedNewPassword;
 
-    await ctx.em.persistAndFlush(user);
+    await User.update({ id: userIdNum }, { password: hashedNewPassword });
 
     await ctx.redis.del(key);
 
